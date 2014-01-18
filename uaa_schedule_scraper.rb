@@ -1,23 +1,41 @@
-require 'rubygems'
-require 'mechanize'
-require 'nokogiri'
-require 'open-uri'
+require 'selenium-webdriver'
+require 'rspec-expectations'
+require 'debugger'
 
-# doc.at_css("dddefault").text
-
-mech = Mechanize.new
-
-form_variables = {'term_in' => '201401', 'sel_camp' => 'UAAALL', 'course_type' => 'A'}
-test = { "term_in" => "dummy", "sel_subj" => "dummy", "sel_day" => "dummy", "sel_schd" => "dummy", "sel_insm" => "dummy", "sel_camp" => "dummy", "sel_levl" => "dummy", "sel_sess" => "dummy", "sel_instr" => "dummy", "sel_ptrm" => "dummy", "sel_attr" => "dummy", "sel_meet" => "dummy", "sel_pace" => "dummy", "sel_method" => "dummy", "search_type" => "QUICK", "sel_title" => "", "begin_hh" => "0", "begin_mi" => "0", "begin_ap" => "a", "end_hh" => "0", "end_mi" => "0", "end_ap" => "a", "btn_sel" => "", "term_in" => "201401", "sel_camp" => "UAAALL", "sel_open_search" => "", "course_type" => "A", "sel_subj" => "%", "sel_crse" => "", "begin_ap" => "x", "end_ap" => "y"}
-
-mech.get('http://www.uaa.alaska.edu/') do |page|
-  #Click 'Class Schedule'
-  search = mech.click(page.link_with(:text => /Class Schedule/))
-  # searchform = search.form('SearchForm')
-  # pp searchform.field_with(:id => 'term_input_id').options[0].click
-  # pp searchform.checkbox_with(:id => 'camp_id19').check
-  # pp searchform.checkbox_with(:id => 'subj_id1').check
-  search
-  results = mech.post('https://uaonline.alaska.edu/banprod/owa/bwck2sch.p_get_crse_unsec', test)
-  puts 'success'
+def setup
+  @driver = Selenium::WebDriver.for :firefox
+  @base_url = 'http://uaa.alaska.edu/'
 end
+
+def teardown
+  @driver.quit
+end
+
+def run
+  setup
+  yield
+  teardown
+end
+
+def wait_for(seconds=5)
+  Selenium::WebDriver::Wait.new(:timeout => seconds).until { yield }
+end
+
+def displayed?(how, what)
+  @driver.find_element(how, what).displayed?
+  true
+  rescue Selenium::WebDriver::Error::NoSuchElementError
+    false
+end
+
+run {
+  @driver.get(@base_url + "/")
+  @driver.find_element(:link, "Class Schedules").click
+  Selenium::WebDriver::Support::Select.new(@driver.find_element(:id, "term_input_id")).select_by(:text, "Spring Semester 2014")  
+  @driver.find_element(:css, "option[value=\"201401\"]").click
+  @driver.find_element(:id, "camp_id19").click
+  sleep(3)
+  @driver.find_element(:id, "subj_id1").click
+  @driver.find_element(:css, "input[type=\"submit\"]").click
+  File.open('text', 'w') { |file| file.write(@driver.page_source()) }
+}
